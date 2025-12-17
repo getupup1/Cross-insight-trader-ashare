@@ -1,0 +1,15 @@
+datasets/
+trained_models/
+tensorboard_log/
+results/
+__pycache__/
+*.pyc
+.DS_Store
+.ipynb_checkpoints/
+wandb/
+tensorboard_log/
+results/
+__pycache__/
+*.pyc
+.DS_Store
+.ipynb_checkpoints/

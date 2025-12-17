@@ -143,7 +143,7 @@ class StockPortfolioEnv(gym.Env):
         if self.terminal:
             df = pd.DataFrame(self.portfolio_return_memory)
             df.columns = ["daily_return"]
-            plt.plot(df.daily_return.cumsum(), "r")
+            plt.plot((1 + df.daily_return).cumprod(), "r")
             plt.savefig("results/cumulative_reward.png")
             plt.close()
 

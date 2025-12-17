@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from copy import deepcopy
 
-from preprocessor.yahoodownloader import YahooDownloader
+from preprocessor.tusharedownloader import Tushareloader
 import config
 
 
@@ -63,8 +63,8 @@ def backtest_plot(
 
 
 def get_baseline(dataset, ticker, start, end):
-    dji = YahooDownloader(
-        portfolio_name=dataset,
+    dji = Tushareloader(
+        portfolio_name='baseline',
         start_date=start, 
         end_date=end, 
         ticker_list=[ticker]
@@ -96,3 +96,83 @@ def trx_plot(df_trade,df_actions,ticker_list):
         plt.gca().xaxis.set_major_locator(mdates.DayLocator(interval=25)) 
         plt.xticks(rotation=45, ha='right')
         plt.show()
+
+
+def plot_csv_vs_baseline(csv_path, baseline_df=None, baseline_ticker=None, save_path="results/cumulative_comparison.png"):
+    """
+    读取 CSV 并与 Baseline 对比
+    :param baseline_df: 外部传入的基准数据 (DataFrame)，如果传入则不重新下载
+    :param baseline_ticker: 如果 baseline_df 为 None，则根据此代码下载
+    """
+    # 1. 读取 Agent CSV 文件
+    print(f"Loading agent data from {csv_path}...")
+    df_agent = pd.read_csv(csv_path)
+    
+    # 格式清洗
+    if 'date' not in df_agent.columns:
+        # 尝试推断列名
+        if len(df_agent.columns) >= 3:
+            df_agent.rename(columns={df_agent.columns[1]: 'date', df_agent.columns[2]: 'daily_return'}, inplace=True)
+            
+    df_agent['date'] = pd.to_datetime(df_agent['date'])
+    df_agent.set_index('date', inplace=True)
+    
+    # 计算复利
+    agent_cumulative = (1 + df_agent['daily_return'].fillna(0)).cumprod()
+
+    # 2. 获取 Baseline 数据 (复用逻辑)
+    if baseline_df is None:
+        # 如果没传数据，才去下载 (兼容旧逻辑)
+        if baseline_ticker is None:
+            raise ValueError("Must provide either baseline_df or baseline_ticker!")
+            
+        print(f"Downloading baseline data for {baseline_ticker}...")
+        from preprocessor.yahoodownloader import YahooDownloader # 或 Tushareloader
+        start_date = df_agent.index.min().strftime("%Y-%m-%d")
+        end_date = df_agent.index.max().strftime("%Y-%m-%d")
+        
+        baseline_loader = YahooDownloader(
+            portfolio_name="baseline_temp",
+            start_date=start_date,
+            end_date=end_date,
+            ticker_list=[baseline_ticker]
+        )
+        df_baseline = baseline_loader.fetch_data()
+        df_baseline = df_baseline[df_baseline.tic == baseline_ticker].copy()
+    else:
+        # 【关键点】如果传入了数据，直接使用
+        print("Using provided baseline dataframe...")
+        df_baseline = baseline_df.copy()
+
+    # 3. 处理 Baseline 数据格式
+    # 确保是 datetime 索引
+    if 'date' in df_baseline.columns:
+        df_baseline['date'] = pd.to_datetime(df_baseline['date'])
+        df_baseline.set_index('date', inplace=True)
+    
+    # 重新计算基准收益 (防止传入的数据没有 daily_return 列)
+    if 'daily_return' not in df_baseline.columns:
+        df_baseline['daily_return'] = df_baseline['close'].pct_change().fillna(0)
+        
+    baseline_cumulative = (1 + df_baseline['daily_return']).cumprod()
+
+    # 4. 对齐与绘图
+    df_plot = pd.DataFrame({
+        'Agent Strategy': agent_cumulative,
+        'Baseline': baseline_cumulative
+    }).dropna()
+
+    plt.figure(figsize=(12, 6))
+    plt.plot(df_plot.index, df_plot['Agent Strategy'], label='Agent Strategy', color='red', linewidth=1.5)
+    plt.plot(df_plot.index, df_plot['Baseline'], label='Baseline', color='blue', linewidth=1.5)
+    
+    plt.title('Cumulative Return Comparison (Compound)')
+    plt.xlabel('Date')
+    plt.ylabel('Net Value (Initial=1.0)')
+    plt.legend(loc='best')
+    plt.grid(True, alpha=0.3)
+    plt.gcf().autofmt_xdate()
+    
+    plt.savefig(save_path)
+    print(f"Comparison plot saved to {save_path}")
+    plt.close()

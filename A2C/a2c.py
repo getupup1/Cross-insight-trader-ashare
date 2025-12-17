@@ -122,7 +122,8 @@ class A2C():
         self._last_episode_starts = None  # type: Optional[np.ndarray]
         self.last_action = None
         # When using VecNormalize:
-        self._last_original_obs = None  # type: Optional[Union[np.ndarray, Dict[str, np.ndarray]]]，set 1 in _setup_learn()
+        self._last_original_obs = None  
+        # type: Optional[Union[np.ndarray, Dict[str, np.ndarray]]]，set 1 in _setup_learn()
         self._episode_num = 0
         self._vec_normalize_env = None
         self._custom_logger = False
@@ -247,7 +248,7 @@ class A2C():
             last_timestep_action_mean = th.zeros([self.agent_num+1, self.action_space.shape[0]])
             multi_obs = series_decomposition(self._last_state[0], self.max_level)
             obs_tensor = obs_as_tensor(multi_obs, self.device)
-            ipdb.set_trace()
+            
             state_tensor = obs_as_tensor(self._last_state[0], self.device)
             critic_last_input_latent, critic_last_cf_input_latent = self.policy.get_critic_input(last_timestep_action.to(self.device), \
                                                                                         obs_tensor, state_tensor.t(), last_timestep_action_mean)

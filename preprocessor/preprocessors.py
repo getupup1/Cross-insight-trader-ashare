@@ -1,8 +1,9 @@
 import numpy as np
 import pandas as pd
 from stockstats import StockDataFrame as Sdf
-from preprocessor.yahoodownloader import YahooDownloader
+from preprocessor.tusharedownloader import Tushareloader
 import pywt
+import datetime 
 import itertools
 import sys
 sys.path.append("..")
@@ -195,17 +196,17 @@ class FeatureEngineer:
 
         for indicator in self.tech_indicator_list:
             indicator_df = pd.DataFrame()
+            indicator_dfs = []
             for i in range(len(unique_ticker)):
                 try:
                     temp_indicator = stock[stock.tic == unique_ticker[i]][indicator]
                     temp_indicator = pd.DataFrame(temp_indicator)
                     temp_indicator['tic'] = unique_ticker[i]
                     temp_indicator['date'] = df[df.tic == unique_ticker[i]]['date'].to_list()
-                    indicator_df = indicator_df.append(
-                        temp_indicator, ignore_index=True
-                    )
+                    indicator_dfs.append(temp_indicator)
                 except Exception as e:
                     print(e)
+            indicator_df = pd.concat(indicator_dfs, ignore_index=True)
             df = df.merge(indicator_df[['tic','date',indicator]],on=['tic','date'],how='left')
         df = df.sort_values(by=['date','tic'])
 
@@ -232,7 +233,7 @@ class FeatureEngineer:
         :return: (df) pandas dataframe
         """
         df = data.copy()
-        df_vix = YahooDownloader(start_date = df.date.min(),
+        df_vix = Tushareloader(start_date = df.date.min(),
                                 end_date = df.date.max(),
                                 ticker_list = ["^VIX"]).fetch_data()
         vix = df_vix[['date','close']]

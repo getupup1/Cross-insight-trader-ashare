@@ -8,7 +8,7 @@ matplotlib.use("Agg")
 import datetime
 
 import config
-from preprocessor.yahoodownloader import YahooDownloader
+from preprocessor.tusharedownloader import Tushareloader
 from preprocessor.preprocessors import FeatureEngineer, data_split, series_decomposition
 # from finrl.neo_finrl.env_stock_trading.env_stocktrading import StockTradingEnv
 from env.env_portfolio import StockPortfolioEnv
@@ -32,7 +32,7 @@ def train_stock_trading(dataset):
         Ticker_list = config.NAS_100_TICKER
 
     print("==============Start Fetching Data===========")
-    df = YahooDownloader(
+    df = Tushareloader(
         portfolio_name=dataset,
         start_date=config.START_DATE,
         end_date=config.END_DATE,
@@ -118,7 +118,7 @@ def train_stock_trading(dataset):
 
     model_a2c = agent.get_model("a2c")
     trained_a2c = agent.train_model(
-        model=model_a2c, tb_log_name="a2c", total_timesteps=50000, eval_env = e_trade_gym
+        model=model_a2c, tb_log_name="a2c", total_timesteps=1000, eval_env = e_trade_gym
     )
 
     print("==============Start Trading===========")
@@ -127,9 +127,8 @@ def train_stock_trading(dataset):
     df_account_value, df_actions = DRLAgent.DRL_prediction(
         model=trained_a2c, environment = e_trade_gym
     )
-    df_account_value.to_csv(
-        "./" + config.RESULTS_DIR + "/df_account_value_" + dataset + str(config.AGENT_NUM) + ".csv"
-    )
+    csv_file_path = "./" + config.RESULTS_DIR + "/df_account_value_" + dataset + str(config.AGENT_NUM) + ".csv"
+    df_account_value.to_csv(csv_file_path)
     df_actions.to_csv("./" + config.RESULTS_DIR + "/df_actions_" + dataset + str(config.AGENT_NUM) + ".csv")
 
     print("==============Get Backtest Results===========")
@@ -143,12 +142,21 @@ def train_stock_trading(dataset):
     print("==============DRL Strategy Stats===========")
     print(perf_stats_all)
 
-    #baseline stats
-    # print("==============Get Baseline Stats===========")
-    # baseline_df = get_baseline(
-    #         dataset = dataset,
-    #         ticker="^DJI", 
-    #         start = df_account_value.loc[0,'date'],
-    #         end = df_account_value.loc[len(df_account_value)-1,'date'])
+    # baseline stats
+    print("==============Get Baseline Stats===========")
+    if dataset == 'SSE_50_TICKER':
+        baseline_ticker = '000016.SH'
+    elif dataset == 'CSI_300_TICKER':
+        baseline_ticker = '000300.SH'  # 沪深300指数
+    else:
+        baseline_ticker = '000001.SH'  # 默认上证指数
+    baseline_df = get_baseline(
+            dataset = dataset,
+            ticker=baseline_ticker, 
+            start = df_account_value.loc[0,'date'],
+            end = df_account_value.loc[len(df_account_value)-1,'date'])
 
-    # stats = backtest_stats(baseline_df, value_col_name = 'close')
+    stats = backtest_stats(baseline_df, value_col_name = 'close')
+
+    from plot import plot_csv_vs_baseline
+    plot_csv_vs_baseline(csv_path=csv_file_path, baseline_df=baseline_df)

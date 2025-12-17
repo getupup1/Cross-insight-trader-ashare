@@ -80,7 +80,7 @@ class DRLAgent:
             fuse_action_return.append(fuse_action_return[-1] + np.sum(((test_state[0][-1,:] / test_state[0][-2,:]) - 1) * softmax_normalization(action)))
             action1_return.append(action1_return[-1] + np.sum(((test_state[0][-1,:] / test_state[0][-2,:]) - 1) * softmax_normalization(agent_actions[0])))
             action2_return.append(action2_return[-1] + np.sum(((test_state[0][-1,:] / test_state[0][-2,:]) - 1) * softmax_normalization(agent_actions[1]))) 
-            action3_return.append(action3_return[-1] + np.sum(((test_state[0][-1,:] / test_state[0][-2,:]) - 1) * softmax_normalization(agent_actions[2]))) 
+            # action3_return.append(action3_return[-1] + np.sum(((test_state[0][-1,:] / test_state[0][-2,:]) - 1) * softmax_normalization(agent_actions[2]))) 
             # action4_return.append(action4_return[-1] + np.sum(((test_state[0][-1,:] / test_state[0][-2,:]) - 1) * softmax_normalization(agent_actions[3]))) 
             # action5_return.append(action5_return[-1] + np.sum(((test_state[0][-1,:] / test_state[0][-2,:]) - 1) * softmax_normalization(agent_actions[4]))) 
             

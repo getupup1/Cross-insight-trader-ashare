@@ -3,13 +3,12 @@ Yahoo Finance API
 """
 import os
 import pandas as pd
-import yfinance as yf
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
 import tushare as ts
 
-class YahooDownloader:
+class Tushareloader:
     """Provides methods for retrieving daily stock data from
     Yahoo Finance API
 
@@ -51,54 +50,81 @@ class YahooDownloader:
         """
         # Download and save the data in a pandas DataFrame:
         data_df = pd.DataFrame()
-        portfolio_save_path = "./datasets" + '/' + self.portfolio_name
-        if os.path.exists(portfolio_save_path):
+        portfolio_save_path = "./data_ashare" + '/' + self.portfolio_name
+        if os.path.exists(portfolio_save_path) and len(os.listdir(portfolio_save_path)) > 0:
             standard_file = pd.read_csv(portfolio_save_path + '/' + self.ticker_list[0] + '.csv',index_col=False)
-            standard_date = pd.to_datetime(standard_file['Date'], errors='coerce')
+            standard_date = pd.to_datetime(standard_file['date'], errors='coerce')
             dfs = []
             for tic in self.ticker_list:
                 temp_df = pd.read_csv(portfolio_save_path + '/' + tic + '.csv',index_col=False)
                 temp_df["tic"] = tic
-                condition1 = temp_df['Date']>=self.start_date
-                condition2 = temp_df['Date']<=self.end_date
+                condition1 = temp_df['date']>=self.start_date
+                condition2 = temp_df['date']<=self.end_date
                 temp_df = temp_df[condition1 & condition2]
-                temp_df['Date'] = pd.to_datetime(temp_df['Date'], errors='coerce')
-                temp_df = pd.merge(standard_date, temp_df, how='left', on="Date")
+                temp_df['date'] = pd.to_datetime(temp_df['date'], errors='coerce')
+                temp_df = pd.merge(standard_date, temp_df, how='left', on="date")
                 temp_df = temp_df.ffill().bfill()
-                temp_df.set_index('Date',inplace=True)
+                temp_df.set_index('date',inplace=True)
                 dfs.append(temp_df)
             data_df = pd.concat(dfs)
         else:
+            save_path = "./data_ashare/" + self.portfolio_name
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+            ts_start_date = self.start_date.replace('-', '')
+            ts_end_date = self.end_date.replace('-', '')
             dfs = []
+            INDEX_CODES = ["000016.SH", "000300.SH", "000001.SH"]
             for tic in self.ticker_list:
-                temp_df = yf.download(tic, start=self.start_date, end=self.end_date)
-                temp_df["tic"] = tic
-                dfs.append(temp_df)
+                is_index = tic in INDEX_CODES
+                if is_index:
+                    # 指数接口
+                    df_tic = self.pro.index_daily(ts_code=tic, start_date=ts_start_date, end_date=ts_end_date)
+                    if df_tic is not None and not df_tic.empty:
+                        df_tic = df_tic.rename(columns={
+                            'trade_date': 'trade_date',
+                            'open': 'open',
+                            'high': 'high',
+                            'low': 'low',
+                            'close': 'close',
+                            'amount': 'vol'  # 指数用 amount 表示成交量
+                        })
+                else:
+                    df_tic = ts.pro_bar(
+                            ts_code=tic, 
+                            api=self.pro, 
+                            adj='qfq', 
+                            start_date=ts_start_date, 
+                            end_date=ts_end_date
+                        )
+                df_tic = df_tic.sort_values('trade_date').reset_index(drop=True)
+                df_tic = df_tic.rename(columns={
+                        'trade_date': 'date',
+                        'open': 'open',
+                        'high': 'high',
+                        'low': 'low',
+                        'close': 'close',
+                        'vol': 'volume'
+                    })
+                df_tic['date'] = pd.to_datetime(df_tic['date'], format='%Y%m%d')
+                output_columns = ['date', 'open', 'high', 'low', 'close', 'volume']
+                df_save = df_tic[output_columns].copy()
+                csv_file_path = f"{save_path}/{tic}.csv"
+                df_save.to_csv(csv_file_path, index=False)
+                df_save['tic'] = tic
+                df_save.set_index('date', inplace=True) 
+                dfs.append(df_save)
             data_df = pd.concat(dfs)
 
         # exit()
         # reset the index, we want to use numbers as index instead of dates
         # print(data_df.head(5))
-        data_df = data_df.reset_index()
+        if data_df.index.name is not None:
+            data_df = data_df.reset_index()  # 有名字的索引（如'date'）转为列
+        else:
+            data_df = data_df.reset_index(drop=True)
         # print(temp_df.head(5))
-        try:
-            # convert the column names to standardized names
-            data_df.columns = [
-                "date",
-                "open",
-                "high",
-                "low",
-                "close",
-                "adjcp",
-                "volume",
-                "tic",
-            ]
-            # use adjusted close price instead of close price
-            data_df["close"] = data_df["adjcp"]
-            # drop the adjusted close price column
-            data_df = data_df.drop("adjcp", axis=1)
-        except NotImplementedError:
-            print("the features are not supported currently")
+       
         # create day of the week column (monday = 0)
         data_df["day"] = data_df["date"].dt.dayofweek
         # convert date to standard string format, easy to filter
@@ -126,11 +152,11 @@ class YahooDownloader:
         return df
     
 if __name__ == "__main__":
-    Ticker_list = config.SSE_50_TICKER
-    df = YahooDownloader(
-            portfolio_name='SSE_50_TICKER',
+    TEST_TICKERS = ["000016.SH", "000300.SH", "000001.SH"]
+    df = Tushareloader(
+            portfolio_name='baseline',
             start_date=config.START_DATE,
             end_date=config.END_DATE,
-            ticker_list=Ticker_list,
+            ticker_list=TEST_TICKERS,
         ).fetch_data()
-    df.to_csv("test_tushare_data.csv", index=False)
+    # df.to_csv("test_tushare_data2.csv", index=False)
