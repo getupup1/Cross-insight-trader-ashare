@@ -12,7 +12,7 @@ import os
 MAX_LEVEL = 1
 AGENT_NUM = MAX_LEVEL + 1
 
-TUSHARE_TOKEN = '7b0eb37a7769141c9e21f91b1a935418dd7da606ad4218a7a2b479e4'
+TUSHARE_TOKEN = ''
 
 # PACKAGE_ROOT = pathlib.Path(finrl.__file__).resolve().parent
 # PACKAGE_ROOT = pathlib.Path().resolve().parent
